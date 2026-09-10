@@ -1,0 +1,48 @@
+name: Validate PR against Scratch Org
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Salesforce CLI
+        run: npm install --global @salesforce/cli
+
+      - name: Authenticate to Dev Hub (JWT)
+        run: |
+          echo "${{ secrets.SF_JWT_KEY }}" > server.key
+          sf org login jwt \
+            --client-id ${{ secrets.SF_CONSUMER_KEY }} \
+            --jwt-key-file server.key \
+            --username ${{ secrets.SF_USERNAME }} \
+            --instance-url ${{ secrets.SF_INSTANCE_URL }} \
+            --alias DevHub --set-default-dev-hub
+
+      - name: Create scratch org
+        env:
+          SF_SCRATCH_SIGNUP_CONNECTED_APP: PlatformCLI
+          SF_SCRATCH_SIGNUP_CALLBACK_URL: http://localhost:1717/OauthRedirect
+        run: |
+          sf org create scratch \
+            --definition-file config/project-scratch-def.json \
+            --alias ci-scratch --duration-days 1 --set-default
+            
+      - name: Deploy metadata to scratch org
+        run: sf project deploy start --target-org ci-scratch
+
+      - name: Run Apex tests
+        run: |
+          sf apex run test \
+            --target-org ci-scratch \
+            --code-coverage --result-format human \
+            --wait 20 --test-level RunLocalTests
+
+      - name: Delete scratch org
+        if: always()
+        run: sf org delete scratch --target-org ci-scratch --no-prompt
