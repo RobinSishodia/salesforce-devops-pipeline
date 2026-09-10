@@ -25,11 +25,14 @@ jobs:
             --alias DevHub --set-default-dev-hub
 
       - name: Create scratch org
+        env:
+          SF_SCRATCH_SIGNUP_CONNECTED_APP: PlatformCLI
+          SF_SCRATCH_SIGNUP_CALLBACK_URL: http://localhost:1717/OauthRedirect
         run: |
           sf org create scratch \
             --definition-file config/project-scratch-def.json \
             --alias ci-scratch --duration-days 1 --set-default
-
+            
       - name: Deploy metadata to scratch org
         run: sf project deploy start --target-org ci-scratch
 
