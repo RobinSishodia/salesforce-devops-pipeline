@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install Salesforce CLI
         run: npm install --global @salesforce/cli
@@ -35,7 +35,7 @@ jobs:
             --alias ci-scratch --duration-days 1 --set-default
             
       - name: Deploy metadata to scratch org
-        run: sf project deploy start --target-org ci-scratch
+        run: sf project deploy start --target-org ci-scratch --source-dir force-app
 
       - name: Run Apex tests
         run: |
