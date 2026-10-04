@@ -1,58 +1,85 @@
-# Salesforce DX Project
+# Salesforce DevOps Pipeline
 
-Salesforce DX is a development approach that brings source-driven development, team collaboration, and continuous integration to the Salesforce Platform. Instead of working directly in an org through a web browser, you work with metadata as source files in a local DX project, track changes in version control, and deploy through automated processes.
+[![Validate PR](https://github.com/RobinSishodia/salesforce-devops-pipeline/actions/workflows/validate-pr.yml/badge.svg)](https://github.com/RobinSishodia/salesforce-devops-pipeline/actions/workflows/validate-pr.yml)
+[![Deploy on Merge](https://github.com/RobinSishodia/salesforce-devops-pipeline/actions/workflows/deploy-on-merge.yml/badge.svg)](https://github.com/RobinSishodia/salesforce-devops-pipeline/actions/workflows/deploy-on-merge.yml)
 
-This project template gets you started with the tools and structure you need to build Salesforce applications using source control, scratch orgs, and the Salesforce CLI.
+An end-to-end CI/CD pipeline for Salesforce, built with Salesforce DX, the `sf` CLI and GitHub Actions. Every pull request is validated in a throwaway scratch org, and every merge to `main` is deployed to the target org with Apex tests enforced.
 
-## Prerequisites
+## How it works
 
-Before you start, make sure you have:
+```
+ feature branch ──PR──▶ main ──merge──▶ target org
+       │                  │
+       ▼                  ▼
+  Validate PR        Deploy on Merge
+  • JWT auth to       • JWT auth to
+    Dev Hub             target org
+  • Create scratch    • Deploy metadata
+    org               • RunLocalTests
+  • Deploy metadata   • Gated by the
+  • Run Apex tests      "production"
+  • Delete scratch      environment
+    org
+```
 
-- **Salesforce CLI** - Download from [developer.salesforce.com/tools/salesforcecli](https://developer.salesforce.com/tools/salesforcecli). See [Install Salesforce CLI](https://developer.salesforce.com/docs/atlas.en-us.sfdx_setup.meta/sfdx_setup/sfdx_setup_install_cli.htm) for details.
-- **VS Code with Salesforce Extension Pack** - See [Installation Instructions](https://developer.salesforce.com/docs/platform/sfvscode-extensions/guide/install.html) for details. Includes the Agentforce Vibes extension.
-- **A development org** - Sign up for a free Developer Edition org [here](https://developer.salesforce.com/signup).
-- **Dev Hub enabled** (optional, required to create scratch orgs) - You can enable Dev Hub in your development org under Setup > Dev Hub.  See [Provide Developers Access to Salesforce DX Tools](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/sfdx_setup_dx_tools.htm).
+| Workflow | Trigger | What it does |
+| --- | --- | --- |
+| [validate-pr.yml](.github/workflows/validate-pr.yml) | Pull request to `main` | Spins up a 1-day scratch org, deploys the source, runs all local Apex tests with coverage, then deletes the org. |
+| [deploy-on-merge.yml](.github/workflows/deploy-on-merge.yml) | Push to `main`, or manual run | Deploys the source to the target org with `RunLocalTests`. Deploys run one at a time and are never cancelled midway. |
 
-## Project Structure
+## Tech stack
 
-Your DX project follows this structure:
+- **Salesforce DX** source format (API version 67.0)
+- **Salesforce CLI (`sf`)** for org auth, scratch orgs, deploys and tests
+- **GitHub Actions** for CI/CD
+- **JWT bearer flow** for headless authentication through a connected app
+- **Husky + lint-staged + Prettier** (with the Apex plugin) for pre-commit formatting
 
-- **`force-app/main/default/`** - Your metadata source files live in this default package directory. You can configure additional package directories in the `sfdx-project.json` file.
-- **`config/`** - Scratch org definitions and project settings
-- **`scripts/`** - Automation scripts for common tasks
-- **`sfdx-project.json`** - Project manifest that defines package directories, namespace, API version, and other project-level settings
+## Repository layout
 
-See [Salesforce DX Project Configuration](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/sfdx_dev_ws_config.htm).
+```
+.github/workflows/      CI/CD workflows
+config/                 Scratch org definition
+docs/                   Guides (Copado mapping)
+force-app/main/default/
+  classes/              ProjectService + test class
+  objects/Project__c/   Custom object
+```
 
-## Get Started
+## Setup
 
-Ready to start developing? The [Get Started with Salesforce DX](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/sfdx_dev_get_started_dx.htm) guide walks you through your first project, from creating a scratch org to creating a simple Apex class or LWC to deploying your code to a sandbox.
+### 1. Connected app and certificate
 
-## Common Salesforce CLI Commands
+1. Generate a private key and self-signed certificate (keep them out of Git; `certs/` is ignored):
+   ```bash
+   openssl req -x509 -sha256 -nodes -days 365 -newkey rsa:2048 \
+     -keyout certs/server.key -out certs/server.crt
+   ```
+2. In your Dev Hub org, create a connected app with **Use digital signatures** enabled (upload `server.crt`), the `api`, `refresh_token` and `web` OAuth scopes, and **Admin approved users are pre-authorized** set for your user's profile.
 
-Here are common CLI commands that you'll use the most:
+### 2. GitHub secrets
 
-- `sf org login web`: Authorize an org
-- `sf org open`: Open your org in a browser
-- `sf org create scratch`: Create a scratch org
-- `sf project deploy start`: Deploy metadata to your org
-- `sf project retrieve start`: Retrieve metadata from your org
-- `sf template generate <artifact>`: Scaffold new components, such as Apex classes and triggers, LWC components, Lightning apps, and more
-- `sf apex <command>`: Run Apex tests, run anonymous Apex blocks, and view logs
-- `sf data <command>`: Work with test data
-- `sf alias <command>`: Manage org aliases
-- `sf config <command>`: Configure CLI settings
+| Secret | Value |
+| --- | --- |
+| `SF_CONSUMER_KEY` | Connected app consumer key |
+| `SF_JWT_KEY` | Contents of `certs/server.key` |
+| `SF_USERNAME` | Username of the Dev Hub / target org user |
+| `SF_INSTANCE_URL` | `https://login.salesforce.com` (or your My Domain URL) |
 
-## Use Agentforce Vibes to Build Lightning Apps
+### 3. Production environment (optional approval gate)
 
-Transform your ideas into custom Lightning apps that extend CRM workflows directly in Lightning Experience. Through natural conversations with Agentforce Vibes, implement custom objects and fields, complex business logic, and dynamic UI components. See [Build a Lightning App Using Agentforce Vibes](https://developer.salesforce.com/docs/platform/einstein-for-devs/guide/lexapp-overview.html).
+In **Settings → Environments**, open `production` (it is created on the first deploy run) and add required reviewers. After that, each merge waits for approval before it deploys.
 
-## Additional Resources
+## Local development
 
-- [Agentforce Vibes Developer Guide](https://developer.salesforce.com/docs/platform/einstein-for-devs/guide/einstein-overview.html)
-- [Salesforce CLI Installation Guide](https://developer.salesforce.com/docs/atlas.en-us.sfdx_setup.meta/sfdx_setup/sfdx_setup_intro.htm)
-- [Salesforce DX Developer Guide](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/)
-- [Salesforce CLI Command Reference](https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/)
-- [Salesforce CLI Plugin Development Guide](https://developer.salesforce.com/docs/platform/salesforce-cli-plugin/guide/conceptual-overview.html)
-- [Salesforce VS Code Extensions Documentation](https://developer.salesforce.com/tools/vscode/)
+```bash
+npm install
+sf org login web --set-default-dev-hub --alias DevHub
+sf org create scratch --definition-file config/project-scratch-def.json --alias dev --set-default
+sf project deploy start
+sf apex run test --code-coverage --result-format human --wait 10
+```
 
+## Copado
+
+To see how this pipeline maps to Copado concepts (user stories, promotions, quality gates, back-promotion), read [docs/copado-guide.md](docs/copado-guide.md).

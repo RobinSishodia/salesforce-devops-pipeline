@@ -23,6 +23,7 @@ jobs:
             --username ${{ secrets.SF_USERNAME }} \
             --instance-url ${{ secrets.SF_INSTANCE_URL }} \
             --alias DevHub --set-default-dev-hub
+          rm -f server.key
 
       - name: Create scratch org
         env:
