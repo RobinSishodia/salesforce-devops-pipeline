@@ -1,7 +1,7 @@
-@isTest
+@IsTest
 private class ProjectServiceTest {
 
-    @isTest
+    @IsTest
     static void testCreateProject() {
         Test.startTest();
         Project__c result = ProjectService.createProject('Test Project Alpha');
@@ -11,7 +11,7 @@ private class ProjectServiceTest {
         System.assertEquals('Test Project Alpha', result.Name, 'Project name should match input');
     }
 
-    @isTest
+    @IsTest
     static void testGetAllProjects() {
         ProjectService.createProject('Project One');
         ProjectService.createProject('Project Two');
