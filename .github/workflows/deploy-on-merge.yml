@@ -15,7 +15,7 @@ jobs:
     environment: production
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install Salesforce CLI
         run: npm install --global @salesforce/cli
@@ -35,6 +35,7 @@ jobs:
         run: |
           sf project deploy start \
             --target-org target-org \
+            --source-dir force-app \
             --test-level RunLocalTests \
             --wait 30 \
             --verbose
