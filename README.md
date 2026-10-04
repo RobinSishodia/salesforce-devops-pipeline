@@ -24,7 +24,7 @@ An end-to-end CI/CD pipeline for Salesforce, built with Salesforce DX, the `sf` 
 
 | Workflow | Trigger | What it does |
 | --- | --- | --- |
-| [validate-pr.yml](.github/workflows/validate-pr.yml) | Pull request to `main` | Spins up a 1-day scratch org, deploys the source, runs all local Apex tests with coverage, then deletes the org. |
+| [validate-pr.yml](.github/workflows/validate-pr.yml) | Pull request to `main` | Two parallel jobs. **code-analysis** scans the code with Salesforce Code Analyzer (PMD, ESLint, regex rules) and fails on High or Critical issues, uploading an HTML report. **validate** spins up a 1-day scratch org, deploys the source, runs all local Apex tests with coverage, then deletes the org. |
 | [deploy-on-merge.yml](.github/workflows/deploy-on-merge.yml) | Push to `main`, or manual run | Deploys the source to the target org with `RunLocalTests`. Deploys run one at a time and are never cancelled midway. |
 
 ## Tech stack
@@ -32,6 +32,7 @@ An end-to-end CI/CD pipeline for Salesforce, built with Salesforce DX, the `sf` 
 - **Salesforce DX** source format (API version 67.0)
 - **Salesforce CLI (`sf`)** for org auth, scratch orgs, deploys and tests
 - **GitHub Actions** for CI/CD
+- **Salesforce Code Analyzer** for static analysis that blocks a PR on High or Critical issues
 - **JWT bearer flow** for headless authentication through a connected app
 - **Husky + lint-staged + Prettier** (with the Apex plugin) for pre-commit formatting
 
