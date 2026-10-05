@@ -25,7 +25,23 @@ An end-to-end CI/CD pipeline for Salesforce, built with Salesforce DX, the `sf` 
 | Workflow | Trigger | What it does |
 | --- | --- | --- |
 | [validate-pr.yml](.github/workflows/validate-pr.yml) | Pull request to `main` | Two parallel jobs. **code-analysis** scans the code with Salesforce Code Analyzer (PMD, ESLint, regex rules) and fails on High or Critical issues, uploading an HTML report. **validate** spins up a 1-day scratch org, deploys the source, runs all local Apex tests with coverage, then deletes the org. |
-| [deploy-on-merge.yml](.github/workflows/deploy-on-merge.yml) | Push to `main`, or manual run | Deploys the source to the target org with `RunLocalTests`. Deploys run one at a time and are never cancelled midway. |
+| [deploy-on-merge.yml](.github/workflows/deploy-on-merge.yml) | Push to `main`, or manual run | Waits for a reviewer to approve the `production` environment, then deploys the source to the target org with `RunLocalTests`. Deploys run one at a time and are never cancelled midway. |
+
+### Approval before production
+
+Deploys to production pause until a required reviewer approves them, and only `main` can deploy:
+
+```mermaid
+flowchart LR
+    PR[Pull request] --> CA[code-analysis<br/>Code Analyzer]
+    PR --> V[validate<br/>scratch org + Apex tests]
+    CA --> M{Merge to main}
+    V --> M
+    M --> W[Deploy on Merge<br/>waiting for review]
+    W -->|Reviewer approves<br/>production| D[Deploy to org<br/>RunLocalTests]
+```
+
+Example: [an approved production deployment](https://github.com/RobinSishodia/salesforce-devops-pipeline/actions/runs/37245217664), which waited for approval and then deployed in 33s with all tests passing.
 
 ## Tech stack
 
